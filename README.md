@@ -2,6 +2,14 @@
 
 Real-Time Operating Systems
 
+## 7segjoy (WIP)
+
+[Source Code](7segjoy/main.cpp)
+
+Displays a flicker-free, oscillating counter on the 7-segment display.
+
+_Work in Progress_
+
 ## hellopico
 
 [Source Code](hellopico/main.cpp) // [Video Demo](https://youtu.be/CNZ3I_aB2DM)
