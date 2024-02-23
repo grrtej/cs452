@@ -9,4 +9,5 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
+add_subdirectory(hellopico)
 add_subdirectory(7segjoy)
