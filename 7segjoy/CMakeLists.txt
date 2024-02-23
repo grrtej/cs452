@@ -1,0 +1,5 @@
+add_executable(7segjoy main.cpp)
+target_link_libraries(7segjoy pico_stdlib)
+pico_enable_stdio_usb(7segjoy 1)
+pico_enable_stdio_uart(7segjoy 0)
+pico_add_extra_outputs(7segjoy)
