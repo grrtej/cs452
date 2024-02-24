@@ -6,7 +6,7 @@ Real-Time Operating Systems
 
 [Source Code](7segjoy/main.cpp)
 
-Displays a flicker-free, oscillating counter on the 7-segment display.
+Displays a flicker-free, oscillating counter on multiplexed 7-segment displays.
 
 _Work in Progress_
 
