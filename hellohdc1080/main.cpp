@@ -73,6 +73,7 @@ int main()
     while (true) { };
 }
 
+// reads sensor data into global variables periodically
 void hdc1080_task(void *param)
 {
     uint16_t c;
@@ -103,6 +104,7 @@ void hdc1080_task(void *param)
     }
 }
 
+// prints formatted sensor data every 10 seconds
 void print_task(void *param)
 {
     auto last_wake_time = xTaskGetTickCount();
@@ -119,6 +121,7 @@ void print_task(void *param)
     }
 }
 
+// write config to configuration register
 void hdc1080_set_config(uint16_t config)
 {
     std::vector<uint8_t> write;
@@ -128,6 +131,7 @@ void hdc1080_set_config(uint16_t config)
     i2c_write_blocking(i2c_default, 0x40, write.data(), write.size(), false);
 }
 
+// get 2 byte value from src register
 uint16_t hdc1080_get_value(uint8_t src)
 {
     std::vector<uint8_t> read(2);
@@ -137,6 +141,7 @@ uint16_t hdc1080_get_value(uint8_t src)
     return read[0] << 8 | read[1];
 }
 
+// setup hdc1080 and the seven segment display
 void hw_init()
 {
     stdio_init_all();
@@ -181,7 +186,7 @@ void hw_init()
     sleep_ms(15);
 }
 
-// display x on the seven segment display
+// display humidity on the seven segment display
 // target: 50 Hz (1000/50 = 20 ms)
 // here, 6 * 3 = 18 ms (close to 20 ms)
 void ss_task(void *param)
@@ -201,6 +206,7 @@ void ss_task(void *param)
     }
 }
 
+// set a digit on the seven segment display
 void ss_set_digit(uint number, char side)
 {
     // clear display
