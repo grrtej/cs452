@@ -1,131 +1,154 @@
-#include <stdio.h>
-#include "pico/stdlib.h"
+// Include FreeRTOS
 #include "FreeRTOS.h"
 #include "task.h"
-#include "queue.h"
+#include "semphr.h"
 
-#define SS_A 26
-#define SS_B 27
-#define SS_C 29
-#define SS_D 18
-#define SS_E 25
-#define SS_F 7
-#define SS_G 28
-#define SS_DP 24
-#define SS_CC1 11
-#define SS_CC2 10
-#define LED PICO_DEFAULT_LED_PIN
+// Include Pico C SDK
+#include "pico/stdlib.h"
 
-void init();
+// Include Standard Library
+#include <cstdio>
+#include <vector>
+#include <cmath>
+
+// tasks
 void counter_task(void *param);
 void led_task(void *param);
-void misc_task(void *param);
+void ss_task(void *param);
+
+// helper functions
+void ss_set(uint number, char side);
+void hw_init();
+
+// constants
+const uint SS_A = 26;
+const uint SS_B = 27;
+const uint SS_C = 29;
+const uint SS_D = 18;
+const uint SS_E = 25;
+const uint SS_F = 7;
+const uint SS_G = 28;
+const uint SS_DP = 24;
+const uint SS_CC1 = 11;
+const uint SS_CC2 = 10;
+const uint LED = PICO_DEFAULT_LED_PIN;
+const std::vector<std::vector<uint>> SS_FONT{
+    {SS_A, SS_B, SS_C, SS_D, SS_E, SS_F},       // 0
+    {SS_B, SS_C},                               // 1
+    {SS_A, SS_B, SS_G, SS_E, SS_D},             // 2
+    {SS_A, SS_B, SS_G, SS_C, SS_D},             // 3
+    {SS_F, SS_G, SS_B, SS_C},                   // 4
+    {SS_A, SS_F, SS_G, SS_C, SS_D},             // 5
+    {SS_A, SS_F, SS_E, SS_D, SS_C, SS_G},       // 6
+    {SS_A, SS_B, SS_C},                         // 7
+    {SS_A, SS_B, SS_C, SS_D, SS_E, SS_F, SS_G}, // 8
+    {SS_A, SS_B, SS_C, SS_D, SS_F, SS_G}        // 9
+};
+
+// globals
+static int x = 42;
+static SemaphoreHandle_t semaphore;
 
 int main()
 {
-    init();
+    // setup seven segment display and d13 led
+    hw_init();
 
-    // xTaskCreate(counter_task, "COUNTER_TASK", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
-    xTaskCreate(misc_task, "MISC_TASK", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+    // create rtos resources
+    xTaskCreate(counter_task, "counter_task", configMINIMAL_STACK_SIZE, nullptr, 1, nullptr);
+    xTaskCreate(led_task, "led_task", configMINIMAL_STACK_SIZE, nullptr, 1, nullptr);
+    xTaskCreate(ss_task, "ss_task", configMINIMAL_STACK_SIZE, nullptr, 1, nullptr);
+    semaphore = xSemaphoreCreateBinary();
+
+    // let's go
     vTaskStartScheduler();
-
     while (true) { };
 }
 
-// Oscillate between 42 and -42. Step to the next number every 0.5 second.
-// Blink the D13 LED on each step by sending an event to the LED task.
+// increases or decreases x every 500 ms
 void counter_task(void *param)
 {
-    // Create a queue and pass it to the LED task.
-    bool led_queue_msg;
-    auto led_queue = xQueueCreate(1, sizeof led_queue_msg);
-    xTaskCreate(led_task, "LED_TASK", configMINIMAL_STACK_SIZE, led_queue, 1, NULL);
-
-    int x = 42;
     int dx = 1;
-
     auto last_wake_time = xTaskGetTickCount();
     while (true)
     {
-        printf("COUNTER_TASK: x = %d\n", x);
+        printf("Counter Task: x = %d\n", x);
         if (x == 42 || x == -42)
         {
             dx = -dx; // flip
         }
         x += dx; // step
 
-        // LED On
-        led_queue_msg = true;
-        xQueueSend(led_queue, &led_queue_msg, 0);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(250));
-
-        // LED Off
-        led_queue_msg = false;
-        xQueueSend(led_queue, &led_queue_msg, 0);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(250));
+        xSemaphoreTake(semaphore, 0);
+        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
     }
 }
 
-// Receive an event from the counter task to blink the D13 LED.
-// NOTE: Cannot use delay.
+// led blinking synchronized with counting
 void led_task(void *param)
 {
-    bool led_queue_msg;
-    auto led_queue = static_cast<QueueHandle_t>(param);
-
+    bool state = true;
     while (true)
     {
-        if (xQueueReceive(led_queue, &led_queue_msg, 0))
+        if (xSemaphoreGive(semaphore))
         {
-            gpio_put(LED, led_queue_msg);
+            gpio_put(LED, state);
+            state = !state;
         }
     }
 }
 
-// Test the 7-segment display
-void misc_task(void *param)
+// display x on the seven segment display
+// target: 50 Hz (1000/50 = 20 ms)
+// here, 6 * 3 = 18 ms (close to 20 ms)
+void ss_task(void *param)
 {
-    gpio_put(SS_CC1, false);
-    gpio_put(SS_CC2, false);
-
-    auto last_wake_time = xTaskGetTickCount();
     while (true)
     {
-        gpio_put(SS_A, true);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
-        gpio_put(SS_A, false);
-
-        gpio_put(SS_B, true);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
-        gpio_put(SS_B, false);
-
-        gpio_put(SS_C, true);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
-        gpio_put(SS_C, false);
-
-        gpio_put(SS_D, true);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
-        gpio_put(SS_D, false);
-
-        gpio_put(SS_E, true);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
-        gpio_put(SS_E, false);
-
-        gpio_put(SS_F, true);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
-        gpio_put(SS_F, false);
-
-        gpio_put(SS_G, true);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
-        gpio_put(SS_G, false);
-
-        gpio_put(SS_DP, true);
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(500));
-        gpio_put(SS_DP, false);
+        ss_set(abs(x) / 10, 'l');
+        vTaskDelay(pdMS_TO_TICKS(6));
+        ss_set(abs(x) % 10, 'r');
+        vTaskDelay(pdMS_TO_TICKS(6));
+        // turn right decimal point on if negative
+        gpio_put(SS_DP, x < 0);
+        vTaskDelay(pdMS_TO_TICKS(6));
     }
 }
 
-void init()
+void ss_set(uint number, char side)
+{
+    // clear display
+    for (auto segment : SS_FONT[8])
+    {
+        gpio_put(segment, false);
+    }
+    gpio_put(SS_DP, false);
+
+    // turn correct segments for number on
+    for (auto segment : SS_FONT[number])
+    {
+        gpio_put(segment, true);
+    }
+
+    // choose left or right display
+    switch (side)
+    {
+    case 'l':
+        gpio_put(SS_CC1, false);
+        gpio_put(SS_CC2, true);
+        break;
+    case 'r':
+        gpio_put(SS_CC1, true);
+        gpio_put(SS_CC2, false);
+        break;
+    default: // turn off
+        gpio_put(SS_CC1, true);
+        gpio_put(SS_CC2, true);
+        break;
+    }
+}
+
+void hw_init()
 {
     stdio_init_all();
 
