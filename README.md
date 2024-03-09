@@ -2,6 +2,12 @@
 
 Real-Time Operating Systems
 
+## hellohdc1080
+
+[Source Code](hellohdc1080/main.cpp) // [Video Demo](https://youtu.be/P9dMVOnD2rI)
+
+Uses the HDC1080 sensor to display ambient temperature and humidity. The seven-segment display shows the relative humidity.
+
 ## 7segjoy
 
 [Source Code](7segjoy/main.cpp) // [Video Demo](https://youtu.be/k6O9cor5BWY)
